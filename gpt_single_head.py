@@ -73,7 +73,7 @@ class Head(nn.Module):
         self.query = nn.Linear(n_embd, head_size)
         self.value = nn.Linear(n_embd, head_size)
         
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        #self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
 
     def forward(self, x):
         B,T,C = x.shape
@@ -85,6 +85,11 @@ class Head(nn.Module):
         # compute the normalize product between Q and K 
         weights = q @ k.transpose(-2, -1) # (B, T, head_size) @ (B, 16, head_size) -> (B, T, T)
         weights = weights / torch.sqrt(torch.tensor(head_size))
+
+        # define the mask (depends on context size)
+        mask_size = min(block_size,x.shape[1])
+        self.register_buffer('tril', torch.tril(torch.ones(mask_size, mask_size)))
+        
         # apply the mask (lower triangular matrix)
         weights = weights.masked_fill(self.tril== 0, float('-inf'))
         # apply the softmax
@@ -167,5 +172,5 @@ for iter in range(max_iters):
 
 # generate from the model
 prompt = torch.tensor(encode(['\n']))
-context = torch.ones((1,1), dtype=torch.long, device=device)*prompt
+context = torch.ones((1,1), dtype=torch.long, device=device)*3
 print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))

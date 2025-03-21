@@ -12,6 +12,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
 n_embd = 32
 
+# at first, we will use single head attention and head_size = n_embd
+head_size = 32
 
 # ------------
 
@@ -65,20 +67,30 @@ class Head(nn.Module):
 
     def __init__(self, head_size):
         super().__init__()
-        # YOUR CODE
+
         # add you key, query and value definitions
-
-        ###
+        self.key = nn.Linear(n_embd, head_size)
+        self.query = nn.Linear(n_embd, head_size)
+        self.value = nn.Linear(n_embd, head_size)
+        
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-
-
 
     def forward(self, x):
         B,T,C = x.shape
-        ## YOUR CODE HERE
 
-        ###
-        out = weight @ v # (B, T, T) @ (B, T, C) -> (B, T, C)
+        k = self.key(x)
+        q = self.query(x)
+        v = self.value(x)
+        
+        # compute the normalize product between Q and K 
+        weights = q @ k.transpose(-2, -1) # (B, T, head_size) @ (B, 16, head_size) -> (B, T, T)
+        weights = weights / torch.sqrt(torch.tensor(head_size))
+        # apply the mask (lower triangular matrix)
+        weights = weights.masked_fill(self.tril== 0, float('-inf'))
+        # apply the softmax
+        weights = nn.functional.softmax(weights, dim=-1)
+        
+        out = weights @ v # (B, T, T) @ (B, T, C) -> (B, T, C)
         return out
 
 
